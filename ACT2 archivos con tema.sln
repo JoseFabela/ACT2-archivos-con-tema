@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34316.72
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ACT2 archivos con tema", "ACT2 archivos con tema\ACT2 archivos con tema.csproj", "{D72154D6-3440-4884-8592-0E2758F65A25}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D72154D6-3440-4884-8592-0E2758F65A25}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D72154D6-3440-4884-8592-0E2758F65A25}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D72154D6-3440-4884-8592-0E2758F65A25}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D72154D6-3440-4884-8592-0E2758F65A25}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FAB824F1-FB21-4387-8455-511AD897A9B5}
+	EndGlobalSection
+EndGlobal
