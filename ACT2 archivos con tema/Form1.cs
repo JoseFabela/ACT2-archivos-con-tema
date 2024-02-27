@@ -6,248 +6,334 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static ACT2_archivos_con_tema.Form1;
 
 namespace ACT2_archivos_con_tema
 {
     public partial class Form1 : Form
     {
-        private const string SequentialFilePath = "sequential.txt";
-        private const string DirectAccessFilePath = "directAccess.bin";
-        private const string IndexedFilePath = "indexed.txt";
-        // Agrega estos controles en tu formulario de Windows Forms
-        private TextBox txtId;
-        private TextBox txtName;
-        private TextBox txtSalary;
-     
+
+        private readonly AgendaContactos agenda = new AgendaContactos();
 
         public Form1()
         {
             InitializeComponent();
-            // Inicialización de controles para la entrada del usuario
-            txtId = new TextBox();
-            txtId.Location = new Point(10, 10);
-            this.Controls.Add(txtId);
-
-            txtName = new TextBox();
-            txtName.Location = new Point(10, 40);
-            this.Controls.Add(txtName);
-
-            txtSalary = new TextBox();
-            txtSalary.Location = new Point(10, 70);
-            this.Controls.Add(txtSalary);
 
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        private void btnAgregar_Click(object sender, EventArgs e)
         {
+            var nuevoContacto = new AgendaContactos.Contacto
+            {
+                Nombre = txtNombre.Text,
+                Telefono = txtTelefono.Text,
+                Correo = txtCorreo.Text,
+                Direccion = txtDireccion.Text
+            };
+
+            // Agregar utilizando archivos secuenciales
+            agenda.AgregarContactoSecuencial(nuevoContacto);
+
+            // Agregar utilizando archivos secuenciales indexados
+            agenda.AgregarContactoSecuencialIndexado(nuevoContacto);
+
+            // Agregar utilizando archivos de acceso directo
+            agenda.AgregarContactoAccesoDirecto(nuevoContacto);
+
+            LimpiarCampos();
+            MessageBox.Show("Contacto agregado correctamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         }
 
-        private void btnSequential_Click(object sender, EventArgs e)
+        private void btnMostrar_Click(object sender, EventArgs e)
         {
-            try
-            {
-                int id = int.Parse(txtId.Text);
-                string name = txtName.Text;
-                int salary = int.Parse(txtSalary.Text);
+            MostrarContactos("Secuencial", agenda.ObtenerContactosSecuencial());
+            MostrarContactos("Secuencial Indexado", agenda.ObtenerContactosSecuencialIndexado());
+            MostrarContactos("Acceso Directo", agenda.ObtenerContactosAccesoDirecto());
 
-                WriteSequentialFile(new Employee { Id = id, Name = name, Salary = salary });
-                MessageBox.Show("Datos escritos correctamente en el archivo secuencial.");
-
-                ReadSequentialFile();
-                MessageBox.Show("Datos leídos correctamente del archivo secuencial.");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error en operaciones de archivo secuencial: {ex.Message}");
-            }
-        }
-        private void WriteSequentialFile(Employee employee)
-        {
-            using (StreamWriter writer = new StreamWriter(SequentialFilePath, true))
-            {
-                writer.WriteLine($"{employee.Id},{employee.Name},{employee.Salary}");
-            }
         }
 
-        private void ReadSequentialFile()
+        private void btnBuscar_Click(object sender, EventArgs e)
         {
-            textBoxOutput.Text = "";  // Limpia el contenido anterior en el cuadro de texto
-
-            using (StreamReader reader = new StreamReader(SequentialFilePath))
+            string nombreBusqueda = txtBuscar.Text;
+            if (!string.IsNullOrEmpty(nombreBusqueda))
             {
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    // Agrega cada línea al cuadro de texto
-                    textBoxOutput.AppendText(line + Environment.NewLine);
-                }
+                BuscarContacto("Secuencial Indexado", nombreBusqueda, agenda.BuscarContactoSecuencialIndexado);
+                BuscarContacto("Acceso Directo", nombreBusqueda, agenda.BuscarContactoAccesoDirecto);
             }
         }
-
-        private void btnDirectAccess_Click(object sender, EventArgs e)
+        private void MostrarContactos(string tipo, List<AgendaContactos.Contacto> contactos)
         {
-            try
-            {
-                int id = int.Parse(txtId.Text);
-                string name = txtName.Text;
-                int salary = int.Parse(txtSalary.Text);
+            listBoxContactos.Items.Add($"Contactos ({tipo}):");
 
-                WriteDirectAccessFile(new Employee { Id = id, Name = name, Salary = salary });
-                MessageBox.Show("Datos escritos correctamente en el archivo de acceso directo.");
+            // Ordenar la lista según el tipo de acceso
+            switch (tipo)
+            {
+                case "Secuencial":
+                    contactos = agenda.OrdenarContactosPorNombre(contactos);
+                    break;
+                case "Secuencial Indexado":
+                    contactos = agenda.OrdenarContactosPorTelefono(contactos);
+                    break;
+                case "Acceso Directo":
+                    contactos = agenda.OrdenarContactosPorCorreo(contactos);
+                    break;
+                default:
+                    break;
+            }
 
-                ReadDirectAccessFile();
-                MessageBox.Show("Datos leídos correctamente del archivo de acceso directo.");
-            }
-            catch (Exception ex)
+            foreach (var contacto in contactos)
             {
-                MessageBox.Show($"Error en operaciones de archivo de acceso directo: {ex.Message}");
+                listBoxContactos.Items.Add($"{contacto.Nombre}, {contacto.Telefono}, {contacto.Correo}, {contacto.Direccion}");
             }
-        }
-        private void WriteDirectAccessFile(Employee employee)
-        {
-            using (BinaryWriter writer = new BinaryWriter(File.Open(DirectAccessFilePath, FileMode.Append)))
-            {
-                byte[] recordBytes = StructureToByteArray(employee);
-                writer.Write(recordBytes);
-            }
+            listBoxContactos.Items.Add("-------------------------");
         }
 
-        private void ReadDirectAccessFile()
+
+
+
+
+
+
+        private void BuscarContacto(string tipo, string nombre, Func<string, AgendaContactos.Contacto> buscarFunc)
         {
-            textBoxOutput.Text = "";  // Limpia el contenido anterior en el cuadro de texto
-
-            List<Employee> employees = new List<Employee>();
-
-            using (BinaryReader reader = new BinaryReader(File.Open(DirectAccessFilePath, FileMode.Open)))
+            var encontrado = buscarFunc(nombre);
+            if (encontrado != null)
             {
-                while (reader.BaseStream.Position < reader.BaseStream.Length)
-                {
-                    byte[] recordBytes = reader.ReadBytes(Marshal.SizeOf(typeof(Employee)));
-                    Employee employee = ByteArrayToStructure<Employee>(recordBytes);
-                    employees.Add(employee);
-                }
+                MessageBox.Show($"Contacto encontrado ({tipo}): \n" +
+                                $"Nombre: {encontrado.Nombre}\n" +
+                                $"Teléfono: {encontrado.Telefono}\n" +
+                                $"Correo: {encontrado.Correo}\n" +
+                                $"Dirección: {encontrado.Direccion}",
+                                "Información del Contacto",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
             }
-
-            // Agrega cada empleado al cuadro de texto
-            foreach (var employee in employees)
+            else
             {
-                textBoxOutput.AppendText($"{employee.Id}: {employee.Name}, {employee.Salary}" + Environment.NewLine);
+                MessageBox.Show($"Contacto no encontrado ({tipo}).", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private void btnIndexed_Click(object sender, EventArgs e)
+        private void LimpiarCampos()
         {
-            try
-            {
-                int id = int.Parse(txtId.Text);
-                string name = txtName.Text;
-                int salary = int.Parse(txtSalary.Text);
-
-                WriteIndexedFile(new Employee { Id = id, Name = name, Salary = salary });
-                MessageBox.Show("Datos escritos correctamente en el archivo indexado.");
-
-                ReadIndexedFile();
-                MessageBox.Show("Datos leídos correctamente del archivo indexado.");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error en operaciones de archivo indexado: {ex.Message}");
-            }
+            txtNombre.Clear();
+            txtTelefono.Clear();
+            txtCorreo.Clear();
+            txtDireccion.Clear();
         }
-        private void WriteIndexedFile(Employee employee)
+    }
+}
+[Serializable]
+public class AgendaContactos
+{
+
+    private const string SecuencialFilePath = "secuencial.txt";
+    private const string SecuencialIndexadoFilePath = "secuencial_indexado.txt";
+    private const string AccesoDirectoFilePath = "acceso_directo.dat";
+
+    [Serializable]
+    public class Contacto
+    {
+        public string Nombre { get; set; }
+        public string Telefono { get; set; }
+        public string Correo { get; set; }
+        public string Direccion { get; set; }
+    }
+
+    public void AgregarContactoSecuencial(Contacto nuevoContacto)
+    {
+        using (StreamWriter writer = new StreamWriter(SecuencialFilePath, true))
         {
-            using (StreamWriter writer = new StreamWriter(IndexedFilePath, true))
-            {
-                writer.WriteLine($"{employee.Id},{employee.Name},{employee.Salary}");
-            }
+            writer.WriteLine($"{nuevoContacto.Nombre},{nuevoContacto.Telefono},{nuevoContacto.Correo},{nuevoContacto.Direccion}");
         }
+    }
 
-        private void ReadIndexedFile()
+    public List<Contacto> ObtenerContactosSecuencial()
+    {
+        List<Contacto> contactos = new List<Contacto>();
+
+        if (File.Exists(SecuencialFilePath))
         {
-            textBoxOutput.Text = "";  // Limpia el contenido anterior en el cuadro de texto
-
-            Dictionary<int, Employee> indexedData = new Dictionary<int, Employee>();
-
-            using (StreamReader reader = new StreamReader(IndexedFilePath))
+            using (StreamReader reader = new StreamReader(SecuencialFilePath))
             {
                 string line;
                 while ((line = reader.ReadLine()) != null)
                 {
                     string[] parts = line.Split(',');
-                    if (parts.Length == 3 && int.TryParse(parts[0], out int key))
+                    if (parts.Length == 4)
                     {
-                        Employee employee = new Employee
+                        contactos.Add(new Contacto
                         {
-                            Id = key,
-                            Name = parts[1],
-                            Salary = int.Parse(parts[2])
-                        };
-                        indexedData[key] = employee;
+                            Nombre = parts[0],
+                            Telefono = parts[1],
+                            Correo = parts[2],
+                            Direccion = parts[3]
+                        });
                     }
                 }
             }
-
-            // Ordena el diccionario por clave antes de mostrarlo
-            var sortedData = indexedData.OrderBy(pair => pair.Key);
-
-            // Agrega cada entrada ordenada del diccionario al cuadro de texto
-            foreach (var entry in sortedData)
-            {
-                textBoxOutput.AppendText($"{entry.Value.Id}: {entry.Value.Name}, {entry.Value.Salary}" + Environment.NewLine);
-            }
         }
 
-        // Métodos auxiliares y estructuras
-        private static byte[] StructureToByteArray<T>(T structure) where T : struct
-        {
-            int size = Marshal.SizeOf(structure);
-            byte[] array = new byte[size];
-            IntPtr ptr = Marshal.AllocHGlobal(size);
-
-            try
-            {
-                Marshal.StructureToPtr(structure, ptr, false);
-                Marshal.Copy(ptr, array, 0, size);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(ptr);
-            }
-
-            return array;
-        }
-
-        private static T ByteArrayToStructure<T>(byte[] array) where T : struct
-        {
-            T structure;
-            int size = Marshal.SizeOf(typeof(T));
-
-            IntPtr ptr = Marshal.AllocHGlobal(size);
-            try
-            {
-                Marshal.Copy(array, 0, ptr, size);
-                structure = (T)Marshal.PtrToStructure(ptr, typeof(T));
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(ptr);
-            }
-
-            return structure;
-        }
-
-        // Estructura para archivos de acceso directo
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        struct Employee
-        {
-            public int Id;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 50)]
-            public string Name;
-            public int Salary;
-        }   
+        return contactos;
     }
+
+    public void AgregarContactoSecuencialIndexado(Contacto nuevoContacto)
+    {
+        // Implementar lógica para archivos secuenciales indexados
+        using (BinaryWriter writer = new BinaryWriter(new FileStream(SecuencialIndexadoFilePath, FileMode.Append)))
+        {
+            // Escribe los datos del nuevo contacto en el archivo
+            writer.Write(nuevoContacto.Nombre);
+            writer.Write(nuevoContacto.Telefono);
+            writer.Write(nuevoContacto.Correo);
+            writer.Write(nuevoContacto.Direccion);
+        }
+    }
+
+    public List<Contacto> ObtenerContactosSecuencialIndexado()
+    {
+        List<Contacto> contactos = new List<Contacto>();
+
+        using (BinaryReader reader = new BinaryReader(new FileStream(SecuencialIndexadoFilePath, FileMode.OpenOrCreate)))
+        {
+            // Leer los datos del archivo y construir la lista de contactos
+            while (reader.BaseStream.Position < reader.BaseStream.Length)
+            {
+                string nombre = reader.ReadString();
+                string telefono = reader.ReadString();
+                string correo = reader.ReadString();
+                string direccion = reader.ReadString();
+
+                contactos.Add(new Contacto
+                {
+                    Nombre = nombre,
+                    Telefono = telefono,
+                    Correo = correo,
+                    Direccion = direccion
+                });
+            }
+        }
+
+        return contactos;
+    }
+
+    public void AgregarContactoAccesoDirecto(Contacto nuevoContacto)
+    {
+        // Implementar lógica para archivos de acceso directo
+        using (BinaryWriter writer = new BinaryWriter(new FileStream(AccesoDirectoFilePath, FileMode.Append)))
+        {
+            // Escribe los datos del nuevo contacto en el archivo binario
+            writer.Write(nuevoContacto.Nombre);
+            writer.Write(nuevoContacto.Telefono);
+            writer.Write(nuevoContacto.Correo);
+            writer.Write(nuevoContacto.Direccion);
+        }
+    }
+
+    public List<Contacto> ObtenerContactosAccesoDirecto()
+    {
+        List<Contacto> contactos = new List<Contacto>();
+
+        using (BinaryReader reader = new BinaryReader(new FileStream(AccesoDirectoFilePath, FileMode.OpenOrCreate)))
+        {
+            // Leer los datos del archivo binario y construir la lista de contactos
+            while (reader.BaseStream.Position < reader.BaseStream.Length)
+            {
+                string nombre = reader.ReadString();
+                string telefono = reader.ReadString();
+                string correo = reader.ReadString();
+                string direccion = reader.ReadString();
+
+                contactos.Add(new Contacto
+                {
+                    Nombre = nombre,
+                    Telefono = telefono,
+                    Correo = correo,
+                    Direccion = direccion
+                });
+            }
+        }
+
+        return contactos;
+    }
+
+    public Contacto BuscarContactoSecuencialIndexado(string nombre)
+    {
+        // Implementar lógica para buscar contacto en archivos secuenciales indexados
+        using (BinaryReader reader = new BinaryReader(new FileStream(SecuencialIndexadoFilePath, FileMode.Open)))
+        {
+            while (reader.BaseStream.Position < reader.BaseStream.Length)
+            {
+                string currentNombre = reader.ReadString();
+                string telefono = reader.ReadString();
+                string correo = reader.ReadString();
+                string direccion = reader.ReadString();
+
+                if (currentNombre.Equals(nombre, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new Contacto
+                    {
+                        Nombre = currentNombre,
+                        Telefono = telefono,
+                        Correo = correo,
+                        Direccion = direccion
+                    };
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public Contacto BuscarContactoAccesoDirecto(string nombre)
+    {
+        // Implementar lógica para buscar contacto en archivos de acceso directo
+        using (BinaryReader reader = new BinaryReader(new FileStream(AccesoDirectoFilePath, FileMode.Open)))
+        {
+            while (reader.BaseStream.Position < reader.BaseStream.Length)
+            {
+                string currentNombre = reader.ReadString();
+                string telefono = reader.ReadString();
+                string correo = reader.ReadString();
+                string direccion = reader.ReadString();
+
+                if (currentNombre.Equals(nombre, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new Contacto
+                    {
+                        Nombre = currentNombre,
+                        Telefono = telefono,
+                        Correo = correo,
+                        Direccion = direccion
+                    };
+                }
+            }
+        }
+
+        return null;
+    }
+    // Agrega estos métodos a la clase AgendaContactos
+
+    public List<Contacto> OrdenarContactosPorNombre(List<Contacto> contactos)
+    {
+        return contactos.OrderBy(c => c.Nombre).ToList();
+    }
+
+    public List<Contacto> OrdenarContactosPorTelefono(List<Contacto> contactos)
+    {
+        return contactos.OrderBy(c => c.Telefono).ToList();
+    }
+
+    public List<Contacto> OrdenarContactosPorCorreo(List<Contacto> contactos)
+    {
+        return contactos.OrderBy(c => c.Correo).ToList();
+    }
+
 }
